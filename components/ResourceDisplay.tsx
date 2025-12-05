@@ -17,13 +17,13 @@ const ResourceDisplay: React.FC<ResourceDisplayProps> = ({ type, value, cap, ico
   return (
     <div className={`flex flex-col bg-slate-900/90 border p-2 rounded relative overflow-hidden group transition-all duration-300 ${
       isFull 
-        ? 'border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)]' 
+        ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]' 
         : 'border-slate-800'
     }`}>
       {/* Background Pulse for Full State */}
       {isFull && <div className="absolute inset-0 bg-red-500/10 animate-pulse pointer-events-none"></div>}
       
-      <div className={`absolute top-0 left-0 w-1 h-full ${color} opacity-50`}></div>
+      <div className={`absolute top-0 left-0 w-1 h-full ${color} opacity-20`}></div>
       
       <div className="flex justify-between items-center mb-1 relative z-10">
         <div className="flex items-center gap-2">

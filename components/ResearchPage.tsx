@@ -19,10 +19,12 @@ const ResearchPage: React.FC<ResearchPageProps> = ({ gameState, onResearch, t })
       </h2>
 
       {gameState.research.current && (
-        <div className="bg-slate-900/90 border border-purple-500 p-4 rounded-lg mb-8 relative overflow-hidden">
+        <div className="bg-slate-900/90 border border-purple-500 p-4 rounded-lg mb-8 relative overflow-hidden shadow-[0_0_20px_rgba(168,85,247,0.2)]">
            <div className="flex justify-between items-end mb-2 relative z-10">
               <div>
-                 <div className="text-xs text-purple-400 font-bold uppercase mb-1">{t.research_progress}</div>
+                 <div className="text-xs text-purple-400 font-bold uppercase mb-1 flex items-center gap-2">
+                    <TestTube size={12} className="animate-spin" /> {t.research_progress}
+                 </div>
                  <div className="text-xl font-bold text-white">{t[RESEARCH_TREE[gameState.research.current.techId].nameKey]}</div>
               </div>
               <div className="text-2xl font-mono text-white" dir="ltr">
@@ -31,7 +33,7 @@ const ResearchPage: React.FC<ResearchPageProps> = ({ gameState, onResearch, t })
            </div>
            <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden relative z-10">
               <div 
-                className="h-full bg-purple-500 transition-all duration-1000 ease-linear" 
+                className="h-full bg-purple-500 transition-all duration-1000 ease-linear shadow-[0_0_10px_rgba(168,85,247,0.8)]" 
                 style={{ width: `${((gameState.research.current.totalTime - gameState.research.current.timer) / gameState.research.current.totalTime) * 100}%` }}
               ></div>
            </div>
@@ -60,10 +62,10 @@ const ResearchPage: React.FC<ResearchPageProps> = ({ gameState, onResearch, t })
                   );
 
                   return (
-                    <div key={tech.id} className={`p-3 rounded border relative group ${
-                        unlocked ? 'bg-emerald-900/20 border-emerald-900' :
-                        researching ? 'bg-purple-900/20 border-purple-500' :
-                        requirementsMet ? 'bg-slate-800 border-slate-700' :
+                    <div key={tech.id} className={`p-3 rounded border relative group transition-all duration-200 ${
+                        unlocked ? 'bg-emerald-900/10 border-emerald-900/50' :
+                        researching ? 'bg-purple-900/20 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.2)]' :
+                        requirementsMet ? 'bg-slate-800/50 border-slate-700 hover:border-slate-500' :
                         'bg-slate-950 border-slate-800 opacity-50'
                     }`}>
                        <div className="flex justify-between items-start mb-2">
@@ -87,9 +89,9 @@ const ResearchPage: React.FC<ResearchPageProps> = ({ gameState, onResearch, t })
                                 <button 
                                   onClick={() => canAfford && onResearch(tech.id)}
                                   disabled={!canAfford || !!gameState.research.current}
-                                  className={`px-2 py-1 text-[9px] font-bold uppercase rounded border ${
+                                  className={`px-2 py-1 text-[9px] font-bold uppercase rounded border transition-all ${
                                      canAfford && !gameState.research.current
-                                     ? 'bg-purple-900/30 border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white' 
+                                     ? 'bg-purple-900/30 border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white hover:shadow-[0_0_10px_rgba(168,85,247,0.4)]' 
                                      : 'bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed'
                                   }`}
                                 >

@@ -2,17 +2,20 @@ import React from 'react';
 
 export type Language = 'en' | 'ar';
 
-export type ResourceType = 'carbon' | 'ferrum' | 'isotopes' | 'energy';
+export type ResourceType = 'carbon' | 'ferrum' | 'isotopes' | 'energy' | 'credits';
 export type BuildingType = 'reactor' | 'extractor_carbon' | 'extractor_ferrum' | 'barracks' | 'radar' | 'storage_depot';
 export type UnitType = 'scout' | 'marine' | 'tank';
 export type TechBranch = 'military' | 'economy' | 'defense' | 'engineering';
 export type TechId = 'hardened_alloys' | 'energy_grid' | 'ballistics' | 'robotics';
+
+export type WorldNodeType = 'base' | 'resource_carbon' | 'resource_ferrum' | 'resource_isotopes' | 'enemy_outpost' | 'enemy_stronghold' | 'boss_lair';
 
 export interface Cost {
   carbon?: number;
   ferrum?: number;
   isotopes?: number;
   energy?: number;
+  credits?: number;
 }
 
 export interface BuildingDef {
@@ -50,6 +53,25 @@ export interface TechDef {
   tier: number;
 }
 
+export interface EnemyDef {
+  id: string;
+  nameKey: string;
+  level: number;
+  power: number;
+  rewards: Partial<Record<ResourceType, number>>;
+}
+
+export interface WorldNode {
+  id: number;
+  type: WorldNodeType;
+  x: number;
+  y: number;
+  level: number;
+  resourceAmount?: number; // For resource nodes
+  enemyId?: string; // For enemy nodes
+  isPlayerBase?: boolean;
+}
+
 export interface GameState {
   resources: Record<ResourceType, number>;
   caps: Record<ResourceType, number>;
@@ -63,6 +85,7 @@ export interface GameState {
       totalTime: number;
     } | null;
   };
+  worldNodes: WorldNode[];
   logs: LogEntry[];
   techLevel: number;
   weather: 'clear' | 'ash_storm' | 'acid_rain';

@@ -1,14 +1,14 @@
 import { 
   Zap, Hammer, Database, Crosshair, Sword, Archive, Target, Users, Shield 
 } from 'lucide-react';
-import { BuildingDef, BuildingType, TechDef, TechId, UnitDef, UnitType } from './types';
+import { BuildingDef, BuildingType, TechDef, TechId, UnitDef, UnitType, EnemyDef, WorldNode } from './types';
 
 // --- GAME CONSTANTS ---
 export const TICK_RATE_MS = 1000;
-export const MAX_LOGS = 6;
+export const MAX_LOGS = 8;
 export const UPGRADE_COST_MULTIPLIER = 1.5;
 export const PRODUCTION_MULTIPLIER = 1.2;
-export const BASE_CAPS = { carbon: 300, ferrum: 150, isotopes: 50, energy: 100 };
+export const BASE_CAPS = { carbon: 300, ferrum: 150, isotopes: 50, energy: 100, credits: 10000 };
 export const MAX_QUEUE_SIZE = 5;
 
 // --- TRANSLATIONS ---
@@ -16,7 +16,7 @@ export const TRANSLATIONS = {
   en: {
     // Menu
     deploy: "DEPLOY",
-    resume_sim: "RESUME SIMULATION",
+    resume_sim: "ENTER BASE",
     operations: "OPERATIONS",
     live_events: "LIVE EVENTS & MISSIONS",
     archives: "ARCHIVES",
@@ -25,6 +25,18 @@ export const TRANSLATIONS = {
     tech_tree: "TECHNOLOGY TREE",
     settings: "SETTINGS",
     system_config: "SYSTEM CONFIG",
+    // World Map
+    world_map: "WORLD MAP",
+    enter_base: "ENTER CASTLE",
+    attack: "ATTACK",
+    gather: "GATHER",
+    level: "LVL",
+    enemy_power: "ENEMY POWER",
+    scout_report: "SCOUT REPORT",
+    victory: "VICTORY",
+    defeat: "DEFEAT",
+    rewards: "REWARDS",
+    energy_cost: "ENERGY COST",
     // Operations
     active_now: "Active Now",
     season_title: "SEASON 1: THE ASHFALL COLLAPSE",
@@ -73,6 +85,9 @@ export const TRANSLATIONS = {
     reset_warning: "WARNING: This will purge local storage and reset campaign progress.",
     // Game
     command_interface: "Command Interface",
+    base_overview: "BASE OVERVIEW",
+    market: "BLACK MARKET",
+    sell: "SELL",
     select_construction: "Select Construction",
     building_progress: "CONSTRUCTION IN PROGRESS",
     upgrading_progress: "UPGRADE IN PROGRESS",
@@ -94,6 +109,8 @@ export const TRANSLATIONS = {
     carbon: "Carbon",
     ferrum: "Ferrum",
     energy: "Energy",
+    credits: "Credits",
+    isotopes: "Isotopes",
     reactor: "Geothermal Bore",
     extractor_carbon: "Carbon Siphon",
     extractor_ferrum: "Magma Dredge",
@@ -108,12 +125,17 @@ export const TRANSLATIONS = {
     tech_hardened_alloys: "Hardened Alloys",
     tech_energy_grid: "Grid Optimization",
     tech_ballistics: "Advanced Ballistics",
-    tech_robotics: "Combat Robotics"
+    tech_robotics: "Combat Robotics",
+    // Enemies
+    enemy_scavengers: "Scavenger Bandits",
+    enemy_mutants: "Ash Mutants",
+    enemy_drone_swarm: "Rogue Drone Swarm",
+    enemy_boss_titan: "Ash Titan (BOSS)"
   },
   ar: {
     // Menu
-    deploy: "نشر القوات",
-    resume_sim: "استئناف المحاكاة",
+    deploy: "خريطة العالم",
+    resume_sim: "دخول القاعدة",
     operations: "العمليات",
     live_events: "الأحداث والمهام الحية",
     archives: "الأرشيف",
@@ -122,6 +144,18 @@ export const TRANSLATIONS = {
     tech_tree: "شجرة التكنولوجيا",
     settings: "الإعدادات",
     system_config: "تكوين النظام",
+    // World Map
+    world_map: "خريطة العالم",
+    enter_base: "دخول القلعة",
+    attack: "هجوم",
+    gather: "جمع موارد",
+    level: "مستوى",
+    enemy_power: "قوة العدو",
+    scout_report: "تقرير استطلاع",
+    victory: "انتصار",
+    defeat: "هزيمة",
+    rewards: "المكافآت",
+    energy_cost: "تكلفة الطاقة",
     // Operations
     active_now: "نشط الآن",
     season_title: "الموسم 1: الانهيار الرمادي",
@@ -170,6 +204,9 @@ export const TRANSLATIONS = {
     reset_warning: "تحذير: سيؤدي هذا إلى مسح التخزين المحلي وإعادة تعيين التقدم.",
     // Game
     command_interface: "واجهة القيادة",
+    base_overview: "نظرة عامة للقاعدة",
+    market: "السوق السوداء",
+    sell: "بيع",
     select_construction: "اختر البناء",
     building_progress: "البناء قيد التنفيذ",
     upgrading_progress: "جاري الترقية",
@@ -191,6 +228,8 @@ export const TRANSLATIONS = {
     carbon: "كربون",
     ferrum: "حديد",
     energy: "طاقة",
+    credits: "أرصدة",
+    isotopes: "نظائر",
     reactor: "حفار حراري",
     extractor_carbon: "مصفاة الكربون",
     extractor_ferrum: "كراكة الصهارة",
@@ -205,7 +244,12 @@ export const TRANSLATIONS = {
     tech_hardened_alloys: "سبائك مقواة",
     tech_energy_grid: "تحسين الشبكة",
     tech_ballistics: "مقدوفات متقدمة",
-    tech_robotics: "روبوتات قتالية"
+    tech_robotics: "روبوتات قتالية",
+    // Enemies
+    enemy_scavengers: "لصوص الخردة",
+    enemy_mutants: "متحولين الرماد",
+    enemy_drone_swarm: "سرب طائرات مارقة",
+    enemy_boss_titan: "عملاق الرماد (زعيم)"
   }
 };
 
@@ -355,4 +399,43 @@ export const RESEARCH_TREE: Record<TechId, TechDef> = {
     reqTech: ['energy_grid', 'ballistics'],
     tier: 2
   }
+};
+
+export const ENEMIES: Record<string, EnemyDef> = {
+  scavengers: { id: 'scavengers', nameKey: 'enemy_scavengers', level: 1, power: 10, rewards: { carbon: 50, credits: 5 } },
+  mutants: { id: 'mutants', nameKey: 'enemy_mutants', level: 3, power: 30, rewards: { isotopes: 20, credits: 15 } },
+  drones: { id: 'drones', nameKey: 'enemy_drone_swarm', level: 5, power: 60, rewards: { ferrum: 100, energy: 50, credits: 25 } },
+  boss: { id: 'boss', nameKey: 'enemy_boss_titan', level: 10, power: 200, rewards: { isotopes: 500, credits: 1000 } }
+};
+
+export const GENERATE_WORLD_NODES = (): WorldNode[] => {
+  const nodes: WorldNode[] = [];
+  // Player Base at center
+  nodes.push({ id: 0, type: 'base', x: 0, y: 0, level: 1, isPlayerBase: true });
+  
+  // Static generation for prototype (could be random)
+  const coords = [
+    {x: 1, y: 1, type: 'resource_carbon', amt: 500},
+    {x: -1, y: 1, type: 'enemy_outpost', enemyId: 'scavengers'},
+    {x: 2, y: 0, type: 'resource_ferrum', amt: 300},
+    {x: -2, y: -1, type: 'enemy_stronghold', enemyId: 'mutants'},
+    {x: 0, y: 2, type: 'resource_isotopes', amt: 100},
+    {x: 3, y: 3, type: 'boss_lair', enemyId: 'boss'},
+    {x: -1, y: -2, type: 'resource_carbon', amt: 600},
+    {x: 1, y: -1, type: 'enemy_outpost', enemyId: 'drones'},
+  ];
+
+  coords.forEach((c, idx) => {
+    nodes.push({
+      id: idx + 1,
+      type: c.type as any,
+      x: c.x,
+      y: c.y,
+      level: c.type.includes('boss') ? 10 : Math.floor(Math.random() * 5) + 1,
+      resourceAmount: c.amt,
+      enemyId: c.enemyId
+    });
+  });
+
+  return nodes;
 };

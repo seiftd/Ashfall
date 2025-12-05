@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Activity, Database, Hammer, Zap, Terminal, ArrowUpCircle, MousePointer, Target, Users, Shield, Lock, Archive
+  Activity, Database, Hammer, Zap, Terminal, ArrowUpCircle, MousePointer, Target, Users, Shield, Lock, Archive, Layers, Hourglass, DollarSign, Map
 } from 'lucide-react';
 
 import { 
-  Language, GameState, BuildingType, UnitType, TechId, LogEntry 
+  Language, GameState, BuildingType, UnitType, TechId, LogEntry, ResourceType 
 } from './types';
 
 import { 
-  TRANSLATIONS, BUILDINGS, UNITS, RESEARCH_TREE, 
+  TRANSLATIONS, BUILDINGS, UNITS, RESEARCH_TREE, ENEMIES, GENERATE_WORLD_NODES,
   TICK_RATE_MS, MAX_LOGS, UPGRADE_COST_MULTIPLIER, PRODUCTION_MULTIPLIER, BASE_CAPS, MAX_QUEUE_SIZE 
 } from './data';
 
@@ -20,9 +20,11 @@ import OperationsPage from './components/OperationsPage';
 import ArchivesPage from './components/ArchivesPage';
 import SettingsPage from './components/SettingsPage';
 import ResearchPage from './components/ResearchPage';
+import BaseOverview from './components/BaseOverview';
+import WorldMapPage from './components/WorldMapPage';
 
 export default function App() {
-  const [view, setView] = useState<'home' | 'game' | 'operations' | 'archives' | 'settings' | 'research'>('home');
+  const [view, setView] = useState<'home' | 'game' | 'world' | 'operations' | 'archives' | 'settings' | 'research'>('home');
   const [tickCount, setTickCount] = useState(0);
   const [lang, setLang] = useState<Language>('en');
 
@@ -31,11 +33,12 @@ export default function App() {
 
   // --- LIFTED GAME STATE ---
   const [gameState, setGameState] = useState<GameState>({
-    resources: { carbon: 300, ferrum: 150, isotopes: 0, energy: 100 },
-    caps: { carbon: 1000, ferrum: 500, isotopes: 100, energy: 100 },
+    resources: { carbon: 300, ferrum: 150, isotopes: 0, energy: 100, credits: 0 },
+    caps: { carbon: 300, ferrum: 150, isotopes: 50, energy: 100, credits: 10000 },
     buildings: Array(9).fill(null).map((_, i) => ({ id: i, buildingId: null, status: 'empty', progress: 0, level: 1, trainingQueue: [] })),
-    units: { scout: 0, marine: 0, tank: 0 },
+    units: { scout: 2, marine: 5, tank: 0 }, // Give starting units for combat testing
     research: { unlocked: [], current: null },
+    worldNodes: GENERATE_WORLD_NODES(),
     logs: [{ id: 0, text: "SYSTEM INITIALIZED. COMMANDER ONLINE.", type: 'info', timestamp: '00:00:00' }],
     techLevel: 0,
     weather: 'clear'
@@ -181,6 +184,76 @@ export default function App() {
     return () => clearInterval(loop);
   }, [lang]);
 
+  // --- ACTIONS ---
+
+  const handleAttack = (nodeId: number) => {
+    setGameState(prev => {
+        const node = prev.worldNodes.find(n => n.id === nodeId);
+        if (!node || !node.enemyId) return prev;
+
+        const enemy = ENEMIES[node.enemyId];
+        // Simple combat calculation
+        const playerPower = (prev.units.scout * UNITS.scout.stats.attack) + 
+                            (prev.units.marine * UNITS.marine.stats.attack) + 
+                            (prev.units.tank * UNITS.tank.stats.attack);
+        
+        const enemyTotalPower = enemy.power; // Static for prototype
+        
+        const winChance = Math.min(0.9, Math.max(0.1, playerPower / (playerPower + enemyTotalPower) + 0.2)); // Bias towards player slightly
+        const isVictory = Math.random() < winChance;
+
+        const now = new Date().toISOString().split('T')[1].split('.')[0];
+        let newLogs = [...prev.logs];
+        let newUnits = { ...prev.units };
+        let newResources = { ...prev.resources };
+
+        if (isVictory) {
+            newLogs.unshift({ id: Date.now(), text: `VICTORY AGAINST ${TRANSLATIONS[lang][enemy.nameKey]}!`, type: 'success', timestamp: now });
+            // Rewards
+            if(enemy.rewards.carbon) newResources.carbon += enemy.rewards.carbon;
+            if(enemy.rewards.ferrum) newResources.ferrum += enemy.rewards.ferrum;
+            if(enemy.rewards.isotopes) newResources.isotopes += enemy.rewards.isotopes;
+            if(enemy.rewards.credits) newResources.credits += enemy.rewards.credits;
+            // Minimal losses
+            if (newUnits.scout > 0 && Math.random() > 0.8) newUnits.scout--;
+        } else {
+            newLogs.unshift({ id: Date.now(), text: `DEFEAT BY ${TRANSLATIONS[lang][enemy.nameKey]}! FORCES RETREATED.`, type: 'warning', timestamp: now });
+            // Heavy losses
+            if (newUnits.scout > 0) newUnits.scout = Math.floor(newUnits.scout * 0.7);
+            if (newUnits.marine > 0) newUnits.marine = Math.floor(newUnits.marine * 0.8);
+            if (newUnits.tank > 0) newUnits.tank = Math.floor(newUnits.tank * 0.9);
+        }
+
+        if(newLogs.length > MAX_LOGS) newLogs.pop();
+
+        return { ...prev, units: newUnits, resources: newResources, logs: newLogs };
+    });
+  };
+
+  const handleGather = (nodeId: number) => {
+    setGameState(prev => {
+        const node = prev.worldNodes.find(n => n.id === nodeId);
+        if (!node || !node.type.includes('resource') || !node.resourceAmount) return prev;
+
+        const energyCost = 10;
+        if (prev.resources.energy < energyCost) return prev; // Not enough energy
+
+        const resType = node.type.split('_')[1] as ResourceType;
+        const newResources = { ...prev.resources };
+        
+        newResources.energy -= energyCost;
+        newResources[resType] = Math.min(prev.caps[resType], (newResources[resType] || 0) + node.resourceAmount);
+
+        const now = new Date().toISOString().split('T')[1].split('.')[0];
+        const newLogs = [{ id: Date.now(), text: `GATHERED ${node.resourceAmount} ${resType.toUpperCase()}`, type: 'success', timestamp: now }, ...prev.logs].slice(0, MAX_LOGS);
+
+        // Remove node or reduce amount? Remove for now to simulate depletion
+        const newWorldNodes = prev.worldNodes.filter(n => n.id !== nodeId);
+
+        return { ...prev, resources: newResources, logs: newLogs as LogEntry[], worldNodes: newWorldNodes };
+    });
+  };
+
   const handleBuild = (type: BuildingType) => {
     if (selectedSlotId === null) return;
     setGameState(prev => {
@@ -252,6 +325,7 @@ export default function App() {
       if (slot.trainingQueue.length >= MAX_QUEUE_SIZE) return prev;
 
       const unitDef = UNITS[unitId];
+      
       if (prev.resources.carbon < (unitDef.cost.carbon || 0)) return prev;
       if (prev.resources.ferrum < (unitDef.cost.ferrum || 0)) return prev;
       if (prev.resources.energy < (unitDef.cost.energy || 0)) return prev;
@@ -280,7 +354,7 @@ export default function App() {
 
   const handleResearch = (techId: TechId) => {
     setGameState(prev => {
-      if (prev.research.current) return prev;
+      if (prev.research.current) return prev; 
       const tech = RESEARCH_TREE[techId];
       if (prev.resources.carbon < (tech.cost.carbon || 0)) return prev;
       if (prev.resources.ferrum < (tech.cost.ferrum || 0)) return prev;
@@ -304,6 +378,18 @@ export default function App() {
         }
       };
     });
+  };
+
+  const handleSell = (resource: ResourceType) => {
+      setGameState(prev => {
+          if (prev.resources[resource] < 100) return prev;
+          const newResources = { ...prev.resources };
+          newResources[resource] -= 100;
+          newResources.credits = (newResources.credits || 0) + 10;
+          const now = new Date().toISOString().split('T')[1].split('.')[0];
+          const newLogs = [{ id: Date.now(), text: `SOLD 100 ${resource.toUpperCase()} FOR 10 CREDITS`, type: 'success', timestamp: now }, ...prev.logs].slice(0, MAX_LOGS);
+          return { ...prev, resources: newResources, logs: newLogs as LogEntry[] };
+      });
   };
 
   const calculateTrends = () => {
@@ -365,6 +451,7 @@ export default function App() {
         {view !== 'home' && (
            <div className="hidden md:flex items-center gap-6">
               <button onClick={() => setView('game')} className={`text-sm font-mono font-bold uppercase ${view === 'game' ? 'text-amber-500' : 'text-slate-500 hover:text-white'}`}>{t.resume_sim}</button>
+              <button onClick={() => setView('world')} className={`text-sm font-mono font-bold uppercase ${view === 'world' ? 'text-cyan-500' : 'text-slate-500 hover:text-white'}`}>{t.world_map}</button>
               <button onClick={() => setView('operations')} className={`text-sm font-mono font-bold uppercase ${view === 'operations' ? 'text-cyan-500' : 'text-slate-500 hover:text-white'}`}>{t.operations}</button>
               <button onClick={() => setView('research')} className={`text-sm font-mono font-bold uppercase ${view === 'research' ? 'text-purple-500' : 'text-slate-500 hover:text-white'}`}>{t.research}</button>
               <button onClick={() => setView('archives')} className={`text-sm font-mono font-bold uppercase ${view === 'archives' ? 'text-emerald-500' : 'text-slate-500 hover:text-white'}`}>{t.archives}</button>
@@ -376,6 +463,7 @@ export default function App() {
             <div className="w-24"><ResourceDisplay type={t.carbon} value={gameState.resources.carbon} cap={gameState.caps.carbon} icon={Database} color="bg-slate-500" trend={trends.carbon} t={t} /></div>
             <div className="w-24"><ResourceDisplay type={t.ferrum} value={gameState.resources.ferrum} cap={gameState.caps.ferrum} icon={Hammer} color="bg-slate-400" trend={trends.ferrum} t={t} /></div>
             <div className="w-24"><ResourceDisplay type={t.energy} value={gameState.resources.energy} cap={gameState.caps.energy} icon={Zap} color={gameState.resources.energy < 10 ? "bg-red-500" : "bg-cyan-500"} trend={trends.energy} t={t} /></div>
+            <div className="w-20"><div className="bg-slate-900 border border-slate-800 p-2 rounded flex flex-col items-end"><div className="text-[10px] text-amber-500 font-bold flex items-center gap-1"><DollarSign size={10} /> CREDITS</div><div className="text-lg font-mono text-white leading-none">{gameState.resources.credits}</div></div></div>
           </div>
         )}
       </header>
@@ -386,12 +474,24 @@ export default function App() {
         {view === 'archives' && <ArchivesPage t={t} />}
         {view === 'research' && <ResearchPage gameState={gameState} onResearch={handleResearch} t={t} />}
         {view === 'settings' && <SettingsPage lang={lang} setLang={setLang} t={t} />}
+        {view === 'world' && (
+            <WorldMapPage 
+                gameState={gameState} 
+                onEnterBase={() => setView('game')} 
+                onAttack={handleAttack} 
+                onGather={handleGather}
+                t={t} 
+            />
+        )}
         
         {view === 'game' && (
           <>
             <aside className="w-80 bg-slate-900/90 border-e border-slate-800 flex flex-col backdrop-blur-sm z-20">
               <div className="p-4 border-b border-slate-800 bg-slate-950/50">
-                <h2 className="text-sm font-mono text-amber-500 font-bold uppercase tracking-wider flex items-center"><Terminal className="w-4 h-4 me-2" />{t.command_interface}</h2>
+                <h2 className="text-sm font-mono text-amber-500 font-bold uppercase tracking-wider flex items-center">
+                    <Terminal className="w-4 h-4 me-2" />
+                    {selectedSlot ? t.command_interface : t.base_overview}
+                </h2>
               </div>
               <div className="flex-1 overflow-hidden p-4">
                 {selectedSlot ? (
@@ -406,10 +506,14 @@ export default function App() {
                          <>
                             <div className="flex items-center gap-3 mb-4 border-b border-slate-800 pb-4">
                                <div className="p-3 bg-slate-800 rounded border border-slate-700 text-cyan-400"><selectedBuildingDef.icon size={24} /></div>
-                               <div><div className="text-lg font-bold text-white leading-none">{t[selectedBuildingDef.nameKey]}</div><div className="text-xs text-emerald-500 font-mono mt-1">LVL {selectedSlot.level} // ONLINE</div></div>
+                               <div>
+                                  <div className="text-lg font-bold text-white leading-none">{t[selectedBuildingDef.nameKey]}</div>
+                                  <div className="text-xs text-emerald-500 font-mono mt-1">LVL {selectedSlot.level} // ONLINE</div>
+                               </div>
                             </div>
                             <div className="space-y-4">
                                <div className="bg-slate-950 p-3 rounded border border-slate-800 text-xs text-slate-400 leading-tight">{selectedBuildingDef.description}</div>
+                               
                                <div className="grid grid-cols-2 gap-2">
                                   <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
                                      <span className="text-[10px] text-slate-500 block">OUTPUT</span>
@@ -427,6 +531,7 @@ export default function App() {
                                      </span>
                                   </div>
                                </div>
+
                                {selectedSlot.status === 'active' && currentUpgradeCost && !selectedSlot.training && (
                                  <div className="mt-6 border-t border-slate-800 pt-4">
                                    <div className="text-xs font-bold text-slate-400 mb-2 uppercase">{t.upgrade_to} {selectedSlot.level + 1}</div>
@@ -439,6 +544,7 @@ export default function App() {
                                    </button>
                                  </div>
                                )}
+                               
                                {selectedSlot.status === 'upgrading' && (
                                  <div className="mt-6 border-t border-slate-800 pt-4 text-center">
                                     <div className="text-cyan-500 font-bold mb-2 animate-pulse">{t.upgrading_progress}</div>
@@ -446,6 +552,7 @@ export default function App() {
                                     <div className="text-xs text-slate-500 mt-1 font-mono">{t.level_short} {selectedSlot.level} → {selectedSlot.level + 1}</div>
                                  </div>
                                )}
+
                                {selectedSlot.status === 'active' && selectedBuildingDef.id === 'barracks' && (
                                  <div className="mt-6 border-t border-slate-800 pt-4">
                                     <div className="flex justify-between items-center mb-2">
@@ -494,29 +601,23 @@ export default function App() {
                     </div>
                   )
                 ) : (
-                  <div className="h-full flex flex-col items-center justify-center text-slate-600 opacity-50">
-                     <div className="text-center mb-8">
-                       <h3 className="text-sm font-bold text-slate-400 mb-2 uppercase">{t.active_forces}</h3>
-                       <div className="grid grid-cols-3 gap-4 text-center">
-                          <div><Target className="w-6 h-6 text-slate-500 mx-auto mb-1" /><span className="text-lg font-mono text-white block">{gameState.units.scout}</span><span className="text-[9px] text-slate-600 uppercase">Scout</span></div>
-                          <div><Users className="w-6 h-6 text-slate-500 mx-auto mb-1" /><span className="text-lg font-mono text-white block">{gameState.units.marine}</span><span className="text-[9px] text-slate-600 uppercase">Marine</span></div>
-                          <div><Shield className="w-6 h-6 text-slate-500 mx-auto mb-1" /><span className="text-lg font-mono text-white block">{gameState.units.tank}</span><span className="text-[9px] text-slate-600 uppercase">Tank</span></div>
-                       </div>
-                     </div>
-                     <MousePointer size={48} className="mb-4" />
-                     <p className="text-xs font-mono">SELECT A SECTOR</p>
-                  </div>
+                  <BaseOverview gameState={gameState} onSell={handleSell} t={t} />
                 )}
               </div>
             </aside>
             <section className="flex-1 bg-black relative flex items-center justify-center overflow-auto p-8 z-10">
                <div className="absolute top-4 start-4 text-[10px] font-mono text-slate-600">{t.coords}: 45.92, -12.04<br/>{t.region}: OBSIDIAN WASTES</div>
                {gameState.weather === 'ash_storm' && (
-                  <div className="absolute inset-0 pointer-events-none z-40 bg-amber-900/10 mix-blend-overlay animate-pulse"><div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-30 animate-[spin_10s_linear_infinite]"></div><div className="absolute top-10 left-1/2 -translate-x-1/2 bg-amber-900/80 text-amber-100 px-4 py-1 rounded text-xs font-bold font-mono border border-amber-500 animate-pulse">{t.ash_storm_warning}</div></div>
+                  <div className="absolute inset-0 pointer-events-none z-40 bg-amber-900/10 mix-blend-overlay animate-pulse">
+                     <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-30 animate-[spin_10s_linear_infinite]"></div>
+                     <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-amber-900/80 text-amber-100 px-4 py-1 rounded text-xs font-bold font-mono border border-amber-500 animate-pulse">{t.ash_storm_warning}</div>
+                  </div>
                )}
                <div className="grid grid-cols-3 gap-4 max-w-2xl w-full aspect-square p-8 border border-slate-800/50 bg-slate-900/20 rounded-xl relative">
                   <div className="absolute -top-1 -start-1 w-8 h-8 border-t-2 border-s-2 border-slate-600"></div><div className="absolute -top-1 -end-1 w-8 h-8 border-t-2 border-e-2 border-slate-600"></div><div className="absolute -bottom-1 -start-1 w-8 h-8 border-b-2 border-s-2 border-slate-600"></div><div className="absolute -bottom-1 -end-1 w-8 h-8 border-b-2 border-e-2 border-slate-600"></div>
-                  {gameState.buildings.map((slot) => (<GridTile key={slot.id} slot={slot} isSelected={selectedSlotId === slot.id} onClick={() => setSelectedSlotId(slot.id)} t={t} />))}
+                  {gameState.buildings.map((slot) => (
+                    <GridTile key={slot.id} slot={slot} isSelected={selectedSlotId === slot.id} onClick={() => setSelectedSlotId(slot.id)} t={t} />
+                  ))}
                </div>
             </section>
             <aside className="w-64 bg-slate-950 border-s border-slate-800 hidden lg:flex flex-col z-20">
