@@ -134,7 +134,7 @@ export const TRANSLATIONS = {
   },
   ar: {
     // Menu
-    deploy: "خريطة العالم",
+    deploy: "نشر القوات",
     resume_sim: "دخول القاعدة",
     operations: "العمليات",
     live_events: "الأحداث والمهام الحية",
@@ -413,7 +413,6 @@ export const GENERATE_WORLD_NODES = (): WorldNode[] => {
   // Player Base at center
   nodes.push({ id: 0, type: 'base', x: 0, y: 0, level: 1, isPlayerBase: true });
   
-  // Static generation for prototype (could be random)
   const coords = [
     {x: 1, y: 1, type: 'resource_carbon', amt: 500},
     {x: -1, y: 1, type: 'enemy_outpost', enemyId: 'scavengers'},

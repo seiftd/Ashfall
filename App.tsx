@@ -28,7 +28,6 @@ export default function App() {
   const [tickCount, setTickCount] = useState(0);
   const [lang, setLang] = useState<Language>('en');
 
-  // Translation helper
   const t = TRANSLATIONS[lang];
 
   // --- LIFTED GAME STATE ---
@@ -184,8 +183,7 @@ export default function App() {
     return () => clearInterval(loop);
   }, [lang]);
 
-  // --- ACTIONS ---
-
+  // Actions
   const handleAttack = (nodeId: number) => {
     setGameState(prev => {
         const node = prev.worldNodes.find(n => n.id === nodeId);
@@ -197,7 +195,7 @@ export default function App() {
                             (prev.units.marine * UNITS.marine.stats.attack) + 
                             (prev.units.tank * UNITS.tank.stats.attack);
         
-        const enemyTotalPower = enemy.power; // Static for prototype
+        const enemyTotalPower = enemy.power; 
         
         const winChance = Math.min(0.9, Math.max(0.1, playerPower / (playerPower + enemyTotalPower) + 0.2)); // Bias towards player slightly
         const isVictory = Math.random() < winChance;
@@ -247,7 +245,7 @@ export default function App() {
         const now = new Date().toISOString().split('T')[1].split('.')[0];
         const newLogs = [{ id: Date.now(), text: `GATHERED ${node.resourceAmount} ${resType.toUpperCase()}`, type: 'success', timestamp: now }, ...prev.logs].slice(0, MAX_LOGS);
 
-        // Remove node or reduce amount? Remove for now to simulate depletion
+        // Remove node
         const newWorldNodes = prev.worldNodes.filter(n => n.id !== nodeId);
 
         return { ...prev, resources: newResources, logs: newLogs as LogEntry[], worldNodes: newWorldNodes };
@@ -356,6 +354,7 @@ export default function App() {
     setGameState(prev => {
       if (prev.research.current) return prev; 
       const tech = RESEARCH_TREE[techId];
+      
       if (prev.resources.carbon < (tech.cost.carbon || 0)) return prev;
       if (prev.resources.ferrum < (tech.cost.ferrum || 0)) return prev;
       if (prev.resources.energy < (tech.cost.energy || 0)) return prev;
@@ -374,7 +373,11 @@ export default function App() {
         logs: newLogs as LogEntry[],
         research: {
           ...prev.research,
-          current: { techId: techId, timer: tech.researchTime, totalTime: tech.researchTime }
+          current: {
+            techId: techId,
+            timer: tech.researchTime,
+            totalTime: tech.researchTime
+          }
         }
       };
     });
@@ -498,7 +501,12 @@ export default function App() {
                   selectedSlot.status === 'empty' ? (
                     <div className="h-full flex flex-col">
                       <div className="text-xs text-slate-400 mb-3 uppercase font-bold tracking-wider">{t.select_construction}</div>
-                      <BuildMenu onBuild={handleBuild} resources={gameState.resources} research={gameState.research.unlocked} t={t} />
+                      <BuildMenu 
+                        onBuild={handleBuild} 
+                        resources={gameState.resources} 
+                        research={gameState.research.unlocked}
+                        t={t} 
+                      />
                     </div>
                   ) : (
                     <div className="h-full flex flex-col">
@@ -513,7 +521,6 @@ export default function App() {
                             </div>
                             <div className="space-y-4">
                                <div className="bg-slate-950 p-3 rounded border border-slate-800 text-xs text-slate-400 leading-tight">{selectedBuildingDef.description}</div>
-                               
                                <div className="grid grid-cols-2 gap-2">
                                   <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
                                      <span className="text-[10px] text-slate-500 block">OUTPUT</span>
